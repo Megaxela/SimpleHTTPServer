@@ -3,79 +3,9 @@
 #include "HTTPHeader.hpp"
 
 HTTPHeader::HTTPHeader() :
-    m_method(Method::None),
-    m_uri(),
-    m_version(),
     m_headers()
 {
 
-}
-
-HTTPHeader::~HTTPHeader()
-{
-    m_data = nullptr;
-    m_dataSize = 0;
-}
-
-HTTPHeader::Method& HTTPHeader::method()
-{
-    return m_method;
-}
-
-HTTPHeader::Method HTTPHeader::method() const
-{
-    return m_method;
-}
-
-void HTTPHeader::setMethod(const HTTPHeader::Method& m)
-{
-    m_method = m;
-}
-
-std::byte* HTTPHeader::data() const
-{
-    return m_data;
-}
-
-std::size_t HTTPHeader::dataSize() const
-{
-    return m_dataSize;
-}
-
-void HTTPHeader::setData(std::byte* data, std::size_t size)
-{
-    m_data = data;
-    m_dataSize = size;
-}
-
-void HTTPHeader::setUri(const std::string_view& path)
-{
-    m_uri = path;
-}
-
-std::string_view HTTPHeader::uri() const
-{
-    return m_uri;
-}
-
-std::string_view& HTTPHeader::uri()
-{
-    return m_uri;
-}
-
-void HTTPHeader::setVersion(const std::string_view& version)
-{
-    m_version = version;
-}
-
-std::string_view HTTPHeader::version() const
-{
-    return m_version;
-}
-
-std::string_view& HTTPHeader::version()
-{
-    return m_version;
 }
 
 unsigned long HTTPHeader::numberOfHeaders() const
@@ -103,158 +33,29 @@ void HTTPHeader::insertHeader(HTTPHeader::HeaderType header, HeadersContainer::s
     m_headers.insert(m_headers.begin() + index, std::move(header));
 }
 
-void HTTPHeader::removeHeader(unsigned long index)
+void HTTPHeader::removeHeader(HeadersContainer::size_type index)
 {
-
-}
-
-static const std::map<std::string_view, HTTPHeader::Method> methods = {
-    {"OPTIONS", HTTPHeader::Method::OPTIONS},
-    {"GET",     HTTPHeader::Method::GET},
-    {"HEAD",    HTTPHeader::Method::HEAD},
-    {"POST",    HTTPHeader::Method::POST},
-    {"PUT",     HTTPHeader::Method::PUT},
-    {"PATCH",   HTTPHeader::Method::PATCH},
-    {"DELETE",  HTTPHeader::Method::DELETE},
-    {"TRACE",   HTTPHeader::Method::TRACE},
-    {"CONNECT", HTTPHeader::Method::CONNECT}
-};
-
-HTTPHeader::Method HTTPHeader::stringToMethod(const std::string_view& s)
-{
-    auto result = methods.find(s);
-
-    if (result == methods.end())
-    {
-        return HTTPHeader::Method::None;
-    }
-
-    return result->second;
-}
-
-std::string_view HTTPHeader::methodToString(HTTPHeader::Method m)
-{
-    switch (m)
-    {
-    case Method::None:      return "None";
-    case Method::OPTIONS:   return "OPTIONS";
-    case Method::GET:       return "GET";
-    case Method::HEAD:      return "HEAD";
-    case Method::POST:      return "POST";
-    case Method::PUT:       return "PUT";
-    case Method::PATCH:     return "PATCH";
-    case Method::DELETE:    return "DELETE";
-    case Method::TRACE:     return "TRACE";
-    case Method::CONNECT:   return "CONNECT";
-    }
+    m_headers.erase(m_headers.begin() + index);
 }
 
 void HTTPHeader::clear()
 {
     m_headers.clear();
-    m_dataSize = 0;
-    m_data = nullptr;
-    m_method = Method::None;
 }
 
-bool HTTPHeader::parse(std::byte* bytes, std::size_t size)
+bool HTTPHeader::parse(std::byte* bytes, std::size_t size, std::size_t* finish)
 {
     // Searching for method end
     std::size_t prevIterator = 0;
-    std::size_t iterator;
-
-    {
-        for (iterator = 0; iterator < size && bytes[iterator] != static_cast<std::byte>(' '); ++iterator);
-
-        // Can't find method end
-        if (iterator >= size)
-        {
-            Warning() << "Can't find space for method.";
-            return false;
-        }
-
-        std::string_view method(reinterpret_cast<const char*>(bytes + prevIterator), iterator - prevIterator);
-
-        // Trying to parse method to enum
-        auto parsedMethod = stringToMethod(method);
-
-        // If parsing was unsuccessful
-        if (parsedMethod == Method::None)
-        {
-            Warning() << "Unknown method \"" << method << "\".";
-            return false;
-        }
-
-        // Ok, parsedMethod is confirmed.
-        iterator += 1;
-        prevIterator = iterator;
-
-        // Searching for next space
-        for (; iterator < size && bytes[iterator] != static_cast<std::byte>(' '); ++iterator);
-
-        bool hasVersion = true;
-
-        if (iterator >= size)
-        {
-            // It's OK, if it's CRLF already, cause it can be HTTP/0.9
-            iterator = prevIterator;
-
-            for (; iterator < size - 1 &&
-                   (bytes[iterator    ] != static_cast<std::byte>(0x0D) ||
-                    bytes[iterator + 1] != static_cast<std::byte>(0x0A));
-                   ++iterator);
-
-            if (iterator >= size)
-            {
-                Warning() << "Can't find space for uri.";
-                return false;
-            }
-
-            hasVersion = false;
-        }
-
-        // Receiving uri
-        std::string_view parsedURI(reinterpret_cast<const char*>(bytes + prevIterator), iterator - prevIterator);
-
-        std::string_view parsedVersion;
-
-        if (hasVersion)
-        {
-            // Ok, URI is confirmed there
-            iterator += 1;
-            prevIterator = iterator;
-
-            // Searching for newline
-            for (; iterator < size - 1 &&
-                   (bytes[iterator    ] != static_cast<std::byte>(0x0D) ||
-                    bytes[iterator + 1] != static_cast<std::byte>(0x0A));
-                   ++iterator);
-
-            if (iterator >= size)
-            {
-                Warning() << "Can't find newline after first line.";
-                return false;
-            }
-
-            // Receiving version
-            parsedVersion = std::string_view(reinterpret_cast<const char*>(bytes + prevIterator), iterator - prevIterator);
-        }
-
-        // Ok, version confirmed there
-        iterator += 2;
-        prevIterator = iterator;
-
-        // Committing values and starting parsing headers
-        m_method = parsedMethod;
-        m_uri = parsedURI;
-        m_version = parsedVersion;
-    }
+    std::size_t iterator = 0;
 
     // Parsing headers
     while (iterator < size)
     {
+//        std::cout << "I: " << iterator << ", S: " << size << std::endl;
         // Searching for ": "
-        for (; iterator < size - 1 &&
+        for (;
+             iterator < size - 1 &&
                (bytes[iterator    ] != static_cast<std::byte>(':') ||
                 bytes[iterator + 1] != static_cast<std::byte>(' '));
                ++iterator);
@@ -299,14 +100,14 @@ bool HTTPHeader::parse(std::byte* bytes, std::size_t size)
             (bytes[iterator    ] == static_cast<std::byte>(0x0D) &&
              bytes[iterator + 1] == static_cast<std::byte>(0x0A)))
         {
+            iterator += 2;
             break;
         }
     }
 
-    if (iterator < size)
+    if (finish)
     {
-        m_data = bytes + iterator;
-        m_dataSize = size - iterator;
+        *finish = iterator;
     }
 
     return true;
@@ -314,32 +115,7 @@ bool HTTPHeader::parse(std::byte* bytes, std::size_t size)
 
 std::size_t HTTPHeader::calculateSerializedSize() const
 {
-    std::size_t result = methodToString(m_method).size();
-
-    // Adding space
-    ++result;
-
-    // Adding uri
-    if (result + m_uri.size() + 1 < result)
-    {
-        throw std::runtime_error("Size is out of range at adding uri.");
-    }
-
-    result += m_uri.size();
-
-    // Adding space
-    ++result;
-
-    // Adding version
-    if (result + m_version.size() + 2 < result)
-    {
-        throw std::runtime_error("Size is out of range at adding version.");
-    }
-
-    result += m_version.size();
-
-    // Adding new line
-    result += 2; // CRLF
+    std::size_t result = 0;
 
     // Adding headers
     for (auto header : m_headers)
@@ -368,25 +144,44 @@ std::size_t HTTPHeader::calculateSerializedSize() const
     }
 
     // Adding 2 new lines
-    if (result + 4 < result)
+    if (result + 2 < result)
     {
         throw std::runtime_error("Size is out of range at adding space between headers and data.");
     }
 
-    result += 4;
-
-    // Adding data
-    if (result + m_dataSize < result)
-    {
-        throw std::runtime_error("Size is out of range at adding data.");
-    }
-
-    result += m_dataSize;
+    result += 2;
 
     return result;
 }
 
-void HTTPHeader::serailize(std::byte* buffer)
+void HTTPHeader::serialize(std::byte* buffer)
 {
+    for (auto&& header : m_headers)
+    {
+        // Name
+        buffer = std::copy(
+            (const std::byte*) header.first.begin(),
+            (const std::byte*) header.first.end(),
+            buffer
+        );
 
+        // ": "
+        *(buffer++) = static_cast<std::byte>(':');
+        *(buffer++) = static_cast<std::byte>(' ');
+
+        // Value
+        buffer = std::copy(
+            (const std::byte*) header.second.begin(),
+            (const std::byte*) header.second.end(),
+            buffer
+        );
+
+        // CRLF
+        *(buffer++) = static_cast<std::byte>('\r');
+        *(buffer++) = static_cast<std::byte>('\n');
+    }
+
+    // CRLF
+    *(buffer++) = static_cast<std::byte>('\r');
+     *buffer    = static_cast<std::byte>('\n');
 }

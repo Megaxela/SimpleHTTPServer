@@ -1,7 +1,6 @@
 #include "Tools/SocketTools.hpp"
 
-#include <Tools/SocketTools.h>
-#include <Tools/ThreadNames.h>
+#include <Tools/SocketTools.hpp>
 #include <CurrentLogger.hpp>
 #include <fcntl.h>
 

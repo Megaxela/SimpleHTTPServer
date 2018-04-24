@@ -14,6 +14,53 @@ TEST(HTTPRequest, Creation)
     ASSERT_EQ(request.version().size(), 0);
 }
 
+TEST(HTTPRequest, ParsingFavicon)
+{
+    std::size_t size = 435;
+    auto* value =
+        (std::byte *)
+            "GET /favicon.ico HTTP/1.1\r\n"
+            "Host: 127.0.0.1:1212\r\n"
+            "Connection: keep-alive\r\n"
+            "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36\r\n"
+            "Accept: image/webp,image/apng,image/*,*/*;q=0.8\r\n"
+            "DNT: 1\r\n"
+            "Referer: http://127.0.0.1:1212/\r\n"
+            "Accept-Encoding: gzip, deflate, br\r\n"
+            "Accept-Language: en-US,en;q=0.9,ru;q=0.8\r\n"
+            "X-Compress: null\r\n"
+            "\r\n";
+
+    std::vector<HTTPHeader::HeaderType> intendedHeaders = {
+        {"Host", "127.0.0.1:1212"},
+        {"Connection", "keep-alive"},
+        {"User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36"},
+        {"Accept", "image/webp,image/apng,image/*,*/*;q=0.8"},
+        {"DNT", "1"},
+        {"Referer", "http://127.0.0.1:1212/"},
+        {"Accept-Encoding", "gzip, deflate, br"},
+        {"Accept-Language", "en-US,en;q=0.9,ru;q=0.8"},
+        {"X-Compress", "null"}
+    };
+
+    HTTPRequest request;
+
+    ASSERT_TRUE(request.parse(value, size));
+    ASSERT_EQ(request.method(), HTTPRequest::Method::GET);
+    ASSERT_EQ(request.uri(), "/favicon.ico");
+    ASSERT_EQ(request.version(), "HTTP/1.1");
+
+    for (HTTPHeader::HeadersContainer::size_type i = 0;
+         i < request.header().numberOfHeaders();
+         ++i)
+    {
+        auto header = request.header().header(i);
+
+        ASSERT_EQ(header.first,  intendedHeaders[i].first );
+        ASSERT_EQ(header.second, intendedHeaders[i].second);
+    }
+}
+
 TEST(HTTPRequest, ParsingCommon)
 {
     std::size_t size = 25 + 24 + 91 + 19 + 19 + 2;

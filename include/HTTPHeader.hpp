@@ -6,9 +6,9 @@
 #include <memory>
 
 /**
- * @brief Container for HTTP document.
+ * @brief Container for HTTP header.
  */
-class HTTPRequest
+class HTTPHeader
 {
 public:
 
@@ -16,108 +16,16 @@ public:
 
     using HeadersContainer = std::vector<HeaderType>;
 
-    /**
-     * @brief HTTP methods.
-     */
-    enum class Method
-    {
-          None
-        , OPTIONS
-        , GET
-        , HEAD
-        , POST
-        , PUT
-        , PATCH
-        , DELETE
-        , TRACE
-        , CONNECT
-    };
 
     /**
      * @brief Constructor.
      */
-    HTTPRequest();
+    HTTPHeader();
 
     /**
      * @brief Destructor.
      */
-    ~HTTPRequest();
-
-    /**
-     * @brief Method for getting
-     * reference to request method.
-     * @return Reference to method.
-     */
-    Method& method();
-
-    /**
-     * @brief Method for getting
-     * copy of request method.
-     * @return Method.
-     */
-    Method method() const;
-
-    /**
-     * @brief Method for setting
-     * request method.
-     * @param m Method.
-     */
-    void setMethod(const Method& m);
-
-    /**
-     * @brief Method for getting actual data.
-     * @return Pointer to actual data.
-     */
-    std::byte* data() const;
-
-    /**
-     * @brief Method for getting data size.
-     * @return Data size.
-     */
-    std::size_t dataSize() const;
-
-    /**
-     * @brief Method for setting actual data.
-     * @param data Pointer to actual data.
-     * @param size Actual data size.
-     */
-    void setData(std::byte* data, std::size_t size);
-
-    /**
-     * @brief Method for setting path.
-     * @param path Path string view.
-     */
-    void setUri(const std::string_view& path);
-
-    /**
-     * @brief Method for getting path.
-     * @return Path.
-     */
-    std::string_view uri() const;
-
-    /**
-     * @brief Method for getting path reference.
-     * @return Path reference.
-     */
-    std::string_view& uri();
-
-    /**
-     * @brief Method for setting protocol string.
-     * @param version Protocol string view.
-     */
-    void setVersion(const std::string_view& version);
-
-    /**
-     * @brief Method for getting protocol.
-     * @return Protocl string view.
-     */
-    std::string_view version() const;
-
-    /**
-     * @brief Method for getting protocol reference.
-     * @return Protocol string view reference.
-     */
-    std::string_view& version();
+    ~HTTPHeader() = default;
 
     /**
      * @brief Method for getting number of
@@ -160,24 +68,6 @@ public:
     void removeHeader(HeadersContainer::size_type index);
 
     /**
-     * @brief Static method for parsing
-     * string to method. If parsing was
-     * unsuccessful, `None` method will
-     * be returned.
-     * @param s String representation.
-     * @return Method type.
-     */
-    static Method stringToMethod(const std::string_view& s);
-
-    /**
-     * @brief Static method for transforming
-     * enum class to string.
-     * @param m Method enum
-     * @return
-     */
-    static std::string_view methodToString(Method m);
-
-    /**
      * @brief Method for clearing document.
      */
     void clear();
@@ -189,7 +79,7 @@ public:
      * @param bytes Shared ptr to bytes.
      * @param size Size.
      */
-    bool parse(std::byte* bytes, std::size_t size);
+    bool parse(std::byte* bytes, std::size_t size, std::size_t* finish=nullptr);
 
     /**
      * @brief Method for calculating
@@ -206,14 +96,9 @@ public:
      * size calculated by `HTTPRequest::calculateSerializedSize`.
      * @param buffer Pointer to buffer.
      */
-    void serailize(std::byte* buffer);
+    void serialize(std::byte* buffer);
 
 private:
-
-    Method m_method;
-
-    std::string_view m_uri;
-    std::string_view m_version;
 
     HeadersContainer m_headers;
 };
